@@ -137,12 +137,9 @@ func calculateSum(start int, end int, fileName string) *Response{
 	en:=len(nums)-1
 	if prefix == " "{
 		st =0
-		fmt.Println("stta",st)
 	}
 	if suffix == " "{
 		en=len(nums)
-		fmt.Println("end",en)
-
 	}
 	for i:=st;i<en;i++{
 		sum += nums[i]
@@ -154,13 +151,25 @@ func calculateSum(start int, end int, fileName string) *Response{
 }
 
 func processChunkString(chunk string) (string,string){
+	prefix := ""
+	suffix := ""
+	if strings.HasPrefix(chunk," "){
+		prefix = " "
+	}
+	if strings.HasSuffix(chunk, " "){
+		suffix =" "
+	}
 	tokens := strings.Split(chunk, " ")
-	prefix := tokens[0]
-	suffix := tokens[len(tokens)-1]
+	if prefix=="" {
+		prefix = tokens[0]
+	}
+	if suffix=="" {
+		suffix = tokens[len(tokens)-1]
+	}
 	//nums := []string{}
 	return prefix,suffix
-	
 }
+
 func checkIfAnyError(err error){
 	if err != nil {
                  fmt.Println(err)
