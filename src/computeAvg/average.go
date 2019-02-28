@@ -50,13 +50,13 @@ func coordinator(fileName string, M int){
 	fragment_size := math.Floor(float64(file_size-1) / float64(M))
 	//lastFragment := int64(file_size) - (int64(M)* int64(fragments))
 	fmt.Println(fragment_size)
-	
+	responseChannel := make(chan []byte)
+
 	//creating M workers
 	for i:=0; i< M; i++ {
 		wg.Add(1)
 		msg := &Message{startPos,startPos+int(fragment_size),fileName}
 		marshalledMsg, _ := json.Marshal(msg) // message packing
-		//fmt.Println("msg",marshalledMsg) 
 		channel := make(chan []byte,1)
       // posting request message in channel
      go func(){
@@ -66,21 +66,30 @@ func coordinator(fileName string, M int){
      startPos = startPos + int(fragment_size)+1;
 
 	  //initiate job for a worker
-	  go worker(fileName, channel)
+	  go worker(fileName, channel,responseChannel)
+	  
+	  marshalledRes := <- responseChannel
+	  unmarshalledRes := Response{}
+	  json.Unmarshal(marshalledRes, &unmarshalledRes)
+	  fmt.Println("resp ch", unmarshalledRes)
 	}
 }
 
-func worker(fileName string,channel chan []byte){
+func worker(fileName string,channel chan []byte, responseChannel chan []byte){
 	//create a place "msg" where the decoded data will be stored
 	defer wg.Done()
 	 marshalledMsg := <-channel
 	 unmarshalledMsg := Message{}
 	 json.Unmarshal(marshalledMsg, &unmarshalledMsg)// unpacking request message
      response := calculateSum(unmarshalledMsg.Start,unmarshalledMsg.End,fileName)
-     
-     //pack or marshal the respose
+     marshalledResponse,_ := json.Marshal(response) // response packing
      // sent res to coordinator via channel
-	 fmt.Println("Psum",response)
+     //responseChannel := make(chan []byte,1)
+     go func(){
+     	//defer wg.Done()
+	    responseChannel <- marshalledResponse
+	    //close(responseChannel)
+     }()
 }
 
 func calculateSum(start int, end int, fileName string) *Response{
@@ -96,7 +105,6 @@ func calculateSum(start int, end int, fileName string) *Response{
 	
 	checkIfAnyError(e1)
 	chunk:=string(fileContentForThisWorker)
-	fmt.Println("this chunk",chunk)
 	
 	nos := strings.Fields(chunk)
 	fmt.Println(nos,len(nos))
@@ -114,12 +122,9 @@ func calculateSum(start int, end int, fileName string) *Response{
 		if len(prefix)<1{
 			prefix=" "
 		}
-		//pre,ep =strconv.Atoi(prefix)
-		//checkIfAnyError(ep)
 	}
 	if(len(suffix)>0){
 		suffix=strings.TrimSpace(suffix)
-		//fmt.Println("inside len s", suffix)
 
 		if len(suffix)==0{
 			suffix=" "
@@ -146,7 +151,6 @@ func calculateSum(start int, end int, fileName string) *Response{
 	}
 	res := &Response{Psum:sum, Pcount: len(nums)-2, Prefix:prefix , 
 		Suffix: suffix,Start: start, End: end}
-	//fmt.Println("pcount",res.Pcount)
 	return res
 }
 
