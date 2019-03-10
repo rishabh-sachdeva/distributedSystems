@@ -60,9 +60,10 @@ func GetSite(w http.ResponseWriter, r *http.Request) {
  // create a new site
 func CreateSite(w http.ResponseWriter, r *http.Request) {
     params := mux.Vars(r)
+    fmt.Println("post",r.Body)
+
     var site Site
     _ = json.NewDecoder(r.Body).Decode(&site)
-    fmt.Println("post",site)
 
     site.Name = params["name"]
     siteArr = append(siteArr, site)
@@ -91,5 +92,5 @@ func UpdateSite(w http.ResponseWriter, r *http.Request) {
 	    	break
 	    }
     }
-     json.NewEncoder(w).Encode(siteArr)
+     json.NewEncoder(w).Encode(updated_site)
 }
