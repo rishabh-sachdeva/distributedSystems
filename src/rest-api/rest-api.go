@@ -1,3 +1,8 @@
+// CMSC 621, Advanced Operating Systems. Spring 2019
+// Project 1
+// Group Submission
+// Group Members: Aniruddha, Arshita, Nipun, Rishab
+
 package main
 
 import (
@@ -7,27 +12,34 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"sync"
 
 	"github.com/gorilla/mux"
 )
 
+// Site struct
 type Site struct {
 	Name         string        `json:"Name,omitempty"`
-	Role         string        `json:"Role,omitempty"`
-	URI          string        `json:"URI,omitempty"`
-	Accesspoints []AccessPoint `json:"Accesspoints,omitempty"`
+	Role         string        `json:"Role"`
+	URI          string        `json:"URI"`
+	Accesspoints []AccessPoint `json:"Accesspoints"`
 }
 
+// AccessPoint struct
 type AccessPoint struct {
-	Label string `json:"Label,omitempty"`
-	URL   string `json:"URL,omitempty"`
+	Label string `json:"Label"`
+	URL   string `json:"URL"`
 }
 
-var apts []AccessPoint
 var siteArr []Site
 
-func main() {
-	// Opening Persistent storage file
+// To maintain persistent file storage, Mutex is used.
+var lock sync.Mutex
+
+func readPersistentFile() {
+	lock.Lock()
+	defer lock.Unlock()
+
 	jsonFile, err := os.Open("sites.json")
 	if err != nil {
 		panic(err)
@@ -36,6 +48,23 @@ func main() {
 
 	b, _ := ioutil.ReadAll(jsonFile)
 	json.Unmarshal(b, &siteArr)
+}
+
+func updatePersistentFile() {
+	lock.Lock()
+	defer lock.Unlock()
+
+	fileWriter, err := os.Create("sites.json")
+	if err != nil {
+		panic(err)
+	}
+	json.NewEncoder(fileWriter).Encode(siteArr)
+	defer fileWriter.Close()
+}
+
+func main() {
+	// Reading Persistent storage file
+	readPersistentFile()
 
 	router := mux.NewRouter()
 	router.HandleFunc("/", projectIndex).Methods("GET")
@@ -71,58 +100,72 @@ func projectIndex(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `<h1>Project 1</h1> 
 					<h2>Group Submission</h2> <br>
 					Group members: <br>
-					<br>Aniruddha<br>Arshitha<br>Nipun Ramagiri<br>Rishab`)
+					<br>Aniruddha<br>Arshitha<br>Nipun<br>Rishab`)
 }
 
 // Site API Handlers
+
 // CreateSite - Creates a new Site
 func CreateSite(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	params := mux.Vars(r)
-	fmt.Println("POST: ", r.Body)
-	var site Site
-	_ = json.NewDecoder(r.Body).Decode(&site)
+	var tempSite Site
+	_ = json.NewDecoder(r.Body).Decode(&tempSite)
 
 	if r.Method == "PUT" {
 		var newSite Site
-		newSite = site
+		newSite = tempSite
 		newSite.Name = params["name"]
-		fmt.Println(&newSite)
-		var isChanged bool
+		// Checking if {name} already present
 		for idx, site := range siteArr {
 			if site.Name == params["name"] {
-				newSite.Name = params["name"]
+				newSite.Name = site.Name
 				newSite.Accesspoints = site.Accesspoints
 				siteArr[idx] = newSite
-				isChanged = true
-				break
+				fmt.Fprint(w, "Site - PUT Update: ")
+				json.NewEncoder(w).Encode(newSite)
+				updatePersistentFile()
+				return
 			}
 		}
-		if !isChanged {
-			siteArr = append(siteArr, newSite)
-		}
-		fileWriter, _ := os.Create("sites.json")
-		json.NewEncoder(fileWriter).Encode(siteArr)
-		defer fileWriter.Close()
+
+		newSite.Accesspoints = nil
+		siteArr = append(siteArr, newSite)
+		fmt.Fprint(w, "Site - PUT Create: ")
+		updatePersistentFile()
 		json.NewEncoder(w).Encode(newSite)
 		return
 	}
 
-	site.Accesspoints = nil
-	siteArr = append(siteArr, site)
-	fileWriter, _ := os.Create("sites.json")
-	json.NewEncoder(fileWriter).Encode(siteArr)
-	json.NewEncoder(w).Encode(site)
-	defer fileWriter.Close()
-
+	if tempSite.Name == "" {
+		fmt.Fprintln(w, "No Name in Body.")
+		return
+	}
+	// Checking if Name in Body already present or not
+	for _, site := range siteArr {
+		if site.Name == tempSite.Name {
+			fmt.Fprint(w, "Name already exists")
+			return
+		}
+	}
+	tempSite.Accesspoints = nil
+	siteArr = append(siteArr, tempSite)
+	updatePersistentFile()
+	fmt.Fprint(w, "Site - POST Create: ")
+	json.NewEncoder(w).Encode(tempSite)
+	return
 }
 
 // GetSites - Returns all the Sites
 func GetSites(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	json.NewEncoder(w).Encode(siteArr)
+	return
 }
 
 // GetSite - Returns single Site of Name: {name}
 func GetSite(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	params := mux.Vars(r)
 	for _, site := range siteArr {
 		if site.Name == params["name"] {
@@ -130,47 +173,58 @@ func GetSite(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	fmt.Fprintln(w, "Name not found.")
+	return
 }
 
 // UpdateSite - Updates a single Site of Name: {name}
 func UpdateSite(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	params := mux.Vars(r)
 	var updatedSite Site
 	_ = json.NewDecoder(r.Body).Decode(&updatedSite)
-	fmt.Println(&updatedSite)
+	updatedSite.Accesspoints = nil
 	for idx, site := range siteArr {
 		if site.Name == params["name"] {
 			updatedSite.Name = params["name"]
 			updatedSite.Accesspoints = site.Accesspoints
 			siteArr[idx] = updatedSite
-			break
+			updatePersistentFile()
+			fmt.Fprint(w, "Site - Updated as: ")
+			json.NewEncoder(w).Encode(updatedSite)
+			return
 		}
 	}
-	fileWriter, _ := os.Create("sites.json")
-	json.NewEncoder(fileWriter).Encode(siteArr)
-	defer fileWriter.Close()
-	json.NewEncoder(w).Encode(updatedSite)
+
+	fmt.Fprintln(w, "Name not found. No update done.")
+	return
 }
 
 // DeleteSite - Deletes a single Site of Name: {name}
 func DeleteSite(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	params := mux.Vars(r)
 	for idx, site := range siteArr {
 		if site.Name == params["name"] {
 			siteArr = append(siteArr[:idx], siteArr[idx+1:]...)
-			break
+			updatePersistentFile()
+			fmt.Fprint(w, "Site Deleted: ")
+			json.NewEncoder(w).Encode(site)
+			return
 		}
 	}
-	fileWriter, _ := os.Create("sites.json")
-	json.NewEncoder(fileWriter).Encode(siteArr)
-	defer fileWriter.Close()
+
+	fmt.Fprintln(w, "Name not found. Nothing deleted.")
+	return
 }
 
 // Access Point API Handlers
+
 // CreateAP - Creates a new AP
 func CreateAP(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	params := mux.Vars(r)
-	fmt.Println("POST: ", r.Body)
 	var AP AccessPoint
 	_ = json.NewDecoder(r.Body).Decode(&AP)
 
@@ -186,6 +240,7 @@ func CreateAP(w http.ResponseWriter, r *http.Request) {
 
 	// If Site absent, no insertion
 	if len(corrSite.Name) == 0 {
+		fmt.Fprint(w, "Name not found.")
 		return
 	}
 
@@ -193,37 +248,47 @@ func CreateAP(w http.ResponseWriter, r *http.Request) {
 		var newAP AccessPoint
 		newAP = AP
 		newAP.Label = params["label"]
-		fmt.Println(&newAP)
-		var isChanged bool
+		// Checking if {label} already present
 		for idx, ap := range corrSite.Accesspoints {
 			if ap.Label == params["label"] {
 				corrSite.Accesspoints[idx] = newAP
-				isChanged = true
-				break
+				siteArr[corrSiteidx] = corrSite
+				updatePersistentFile()
+				fmt.Fprint(w, "AP - PUT Update: ")
+				json.NewEncoder(w).Encode(siteArr[corrSiteidx])
+				return
 			}
 		}
-		if !isChanged {
-			corrSite.Accesspoints = append(corrSite.Accesspoints, newAP)
-		}
 
+		corrSite.Accesspoints = append(corrSite.Accesspoints, newAP)
 		siteArr[corrSiteidx] = corrSite
-		fileWriter, _ := os.Create("sites.json")
-		json.NewEncoder(fileWriter).Encode(siteArr)
-		defer fileWriter.Close()
+		updatePersistentFile()
+		fmt.Fprint(w, "AP - PUT Create: ")
 		json.NewEncoder(w).Encode(newAP)
 		return
 	}
 
+	if AP.Label == "" {
+		fmt.Fprintln(w, "No Label in Body.")
+		return
+	}
+	// Checking if Label in Body already present or not
+	for _, ap := range corrSite.Accesspoints {
+		if ap.Label == AP.Label {
+			fmt.Fprint(w, "Label already exists.")
+			return
+		}
+	}
 	siteArr[corrSiteidx].Accesspoints = append(siteArr[corrSiteidx].Accesspoints, AP)
-	fileWriter, _ := os.Create("sites.json")
-	json.NewEncoder(fileWriter).Encode(siteArr)
-	json.NewEncoder(w).Encode(corrSite)
-	defer fileWriter.Close()
-
+	updatePersistentFile()
+	fmt.Fprint(w, "AP - POST Create: ")
+	json.NewEncoder(w).Encode(siteArr[corrSiteidx])
+	return
 }
 
 // GetAPs - Returns all the AP
 func GetAPs(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	params := mux.Vars(r)
 	for _, site := range siteArr {
 		if site.Name == params["name"] {
@@ -231,10 +296,14 @@ func GetAPs(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+
+	fmt.Fprintln(w, "Name not found.")
+	return
 }
 
 // GetAP - Returns single AP of Label: {label}
 func GetAP(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	params := mux.Vars(r)
 	for _, site := range siteArr {
 		if site.Name == params["name"] {
@@ -244,16 +313,18 @@ func GetAP(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
+			fmt.Fprintln(w, "Label not found.")
+			return
 		}
 	}
+	fmt.Fprintln(w, "Name not found.")
+	return
 }
 
 // UpdateAP - Updates a single AP of Label: {label}
 func UpdateAP(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	params := mux.Vars(r)
-	fmt.Println("POST: ", r.Body)
-	var AP AccessPoint
-	_ = json.NewDecoder(r.Body).Decode(&AP)
 
 	// Finding the corresponding site
 	var corrSite Site
@@ -262,31 +333,38 @@ func UpdateAP(w http.ResponseWriter, r *http.Request) {
 		if site.Name == params["name"] {
 			corrSite = site
 			corrSiteidx = idx
+			break
 		}
 	}
-
-	// If Site absent, no insertion
+	// If Site absent, no update
 	if len(corrSite.Name) == 0 {
+		fmt.Fprintln(w, "Name not found. No update done.")
 		return
 	}
+
+	var AP AccessPoint
+	_ = json.NewDecoder(r.Body).Decode(&AP)
+	AP.Label = params["label"]
 
 	for idx, ap := range corrSite.Accesspoints {
 		if ap.Label == params["label"] {
 			corrSite.Accesspoints[idx] = AP
+			siteArr[corrSiteidx] = corrSite
+			updatePersistentFile()
+			fmt.Fprint(w, "Site AP - Updated as: ")
+			json.NewEncoder(w).Encode(corrSite)
+			return
 		}
 	}
 
-	siteArr[corrSiteidx] = corrSite
-	fileWriter, _ := os.Create("sites.json")
-	json.NewEncoder(fileWriter).Encode(siteArr)
-	json.NewEncoder(w).Encode(corrSite)
-	defer fileWriter.Close()
+	fmt.Fprintln(w, "Label not found. No update done.")
+	return
 }
 
 // DeleteAP - Deletes a single AP of Label: {label}
 func DeleteAP(w http.ResponseWriter, r *http.Request) {
+	readPersistentFile()
 	params := mux.Vars(r)
-	fmt.Println("POST: ", r.Body)
 	var AP AccessPoint
 	_ = json.NewDecoder(r.Body).Decode(&AP)
 
@@ -303,19 +381,21 @@ func DeleteAP(w http.ResponseWriter, r *http.Request) {
 
 	// If Site absent, no insertion
 	if len(corrSite.Name) == 0 {
+		fmt.Fprintln(w, "Name not found. No deletion done.")
 		return
 	}
 
 	for idx, ap := range corrSite.Accesspoints {
 		if ap.Label == params["label"] {
 			corrSite.Accesspoints = append(corrSite.Accesspoints[:idx], corrSite.Accesspoints[idx+1:]...)
-			break
+			siteArr[corrSiteidx] = corrSite
+			updatePersistentFile()
+			fmt.Fprint(w, "AP Deleted: ")
+			json.NewEncoder(w).Encode(ap)
+			return
 		}
 	}
 
-	siteArr[corrSiteidx] = corrSite
-	fileWriter, _ := os.Create("sites.json")
-	json.NewEncoder(fileWriter).Encode(siteArr)
-	json.NewEncoder(w).Encode(corrSite)
-	defer fileWriter.Close()
+	fmt.Fprintln(w, "Label not found. Nothing deleted.")
+	return
 }

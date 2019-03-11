@@ -1,1 +1,32 @@
-[{"Name":"name-1","Role":"megarole-newput","URI":"uri-132","Accesspoints":[{"Label":"label-1","URL":"url-1"},{"Label":"label-2","URL":"url-2"},{"Label":"label-3"},{"Label":"label-4","URL":"url-5345"}]},{"Name":"name-2","Role":"megarole-123453453","URI":"uri-132","Accesspoints":[{"Label":"label-3","URL":"url-3"},{"Label":"label-2","URL":"url-2"}]},{"Name":"lol"},{"Name":"test123","Role":"megarole-123","URI":"uri-132","Accesspoints":[{"Label":"456","URL":"url-321"},{"Label":"label-322","URL":"url-232"}]},{"Name":"name-125346453","Role":"megarole-123","URI":"uri-132"},{"Name":"name-2","Role":"megarole-new","URI":"uri-132"}]
+[
+    {
+      "Name": "name-1",
+      "Role": "role-1",
+      "URI": "uri-1",
+      "Accesspoints": [
+          {
+              "Label":"label-1",
+              "URL":"url-1"
+          },
+          {
+              "Label":"label-2",
+              "URL":"url-2"
+          }
+      ]
+    },
+    {
+      "Name": "name-2",
+      "Role": "role-2",
+      "URI": "uri-2",
+      "Accesspoints": [
+          {
+              "Label":"label-3",
+              "URL":"url-3"
+          },
+          {
+              "Label":"label-2",
+              "URL":"url-2"
+          }
+      ]
+    }
+  ]
