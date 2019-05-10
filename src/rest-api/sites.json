@@ -1,0 +1,32 @@
+[
+    {
+      "Name": "name-1",
+      "Role": "role-1",
+      "URI": "uri-1",
+      "Accesspoints": [
+          {
+              "Label":"label-1",
+              "URL":"url-1"
+          },
+          {
+              "Label":"label-2",
+              "URL":"url-2"
+          }
+      ]
+    },
+    {
+      "Name": "name-2",
+      "Role": "role-2",
+      "URI": "uri-2",
+      "Accesspoints": [
+          {
+              "Label":"label-3",
+              "URL":"url-3"
+          },
+          {
+              "Label":"label-2",
+              "URL":"url-2"
+          }
+      ]
+    }
+  ]
