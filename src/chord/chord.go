@@ -77,6 +77,7 @@ type Command struct{
 				workerClient,_ := context.NewSocket(zmq.REQ) // worker client
 				workerClient.Connect(sponsoringNode)
 				fmt.Println("attempt to join",sponsoringNode)
+				//how to do -- update buckets, pre and succ
 				to_join := &Command{
 					Do: "joining",
 					SenderNode: node,
@@ -135,7 +136,8 @@ type Command struct{
 		}
 		context,_ := zmq.NewContext()
 		coordinatorClient,_ := context.NewSocket(zmq.REQ) // coordinator client
-		coordinatorClient.Connect("tcp://127.0.0.1:5503")
+		//joining
+		coordinatorClient.Connect("tcp://127.0.0.1:5508")
 
 		//joining command
 		join_2 := &Command{
