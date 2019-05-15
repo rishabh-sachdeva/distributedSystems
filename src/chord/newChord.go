@@ -271,7 +271,7 @@ func worker(node *Node) {
 			fmt.Println("Node details - Succ", node)
 
 		} else if unMarshalledCommand.Do == "put" {
-				fmt.Println("*****************************************inside PUT")
+			fmt.Println("*****************************************inside PUT")
 			workerServer.Send("PUT acknowledged", 0)
 			data_key := unMarshalledCommand.Data.Key
 			//data_val := unMarshalledCommand.Data.Value
@@ -324,26 +324,26 @@ func worker(node *Node) {
 			}
 			// workerServer.Send("PUT acknowledged", 0)
 			time.Sleep(time.Second)
-		//	contextForAdddata1, _ := zmq.NewContext()
-		//	workerClientAdddata1, _ := contextForAdddata1.NewSocket(zmq.REQ) // client
+			//	contextForAdddata1, _ := zmq.NewContext()
+			//	workerClientAdddata1, _ := contextForAdddata1.NewSocket(zmq.REQ) // client
 			//time.Sleep(1*time.Second)
 			workerClientForDataPut.Connect(concerned_node_address)
-			
+
 			addData := &Command{
-				Do:     "update-bucket",
+				Do:      "update-bucket",
 				ReplyTo: my_add,
 				Data:    unMarshalledCommand.Data,
 			}
 			marshalled_addData, _ := json.Marshal(addData) //message packing into json
-			fmt.Println("send update bucket command at address:", concerned_node_address,my_add)
+			fmt.Println("send update bucket command at address:", concerned_node_address, my_add)
 			fmt.Println("Data being sent:", addData.Data)
-			
+
 			workerClientForDataPut.SendBytes(marshalled_addData, 0)
-			recvAck,_ :=workerClientForDataPut.Recv(0) //get ack
+			recvAck, _ := workerClientForDataPut.Recv(0) //get ack
 			fmt.Println(recvAck)
 			fmt.Println("PUT COMPELTE")
 
-		} else if unMarshalledCommand.Do == "update-bucket"{
+		} else if unMarshalledCommand.Do == "update-bucket" {
 			fmt.Println("***************************Updating bucket in ", my_add, unMarshalledCommand.Data)
 			node.Bucket[unMarshalledCommand.Data.Key] = unMarshalledCommand.Data.Value
 			workerServer.Send("update acknowledged ", 0)
@@ -460,7 +460,6 @@ func main() {
 	}
 	executeCommand("tcp://127.0.0.1:5513", join13)
 
-
 	// upd_cmd := &Command{
 	// 	Do:      "update-bucket",
 	// 	ReplyTo: "tcp://127.0.0.1:5508",
@@ -476,7 +475,6 @@ func main() {
 		fmt.Println("update finger table of:", addr)
 		executeCommand(addr, fix_finger_table_cmd)
 	}
-	
 
 	// Put data commands
 	time.Sleep(1 * time.Second)
@@ -529,8 +527,6 @@ func main() {
 		ReplyTo: "tcp://127.0.0.1:5508",
 	}
 	executeCommand("tcp://127.0.0.1:5514", get_list_cmd)
-
-
 
 	fmt.Println("\n\t--------End of main() commands--------")
 
