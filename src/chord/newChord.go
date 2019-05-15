@@ -271,7 +271,7 @@ func worker(node *Node) {
 			fmt.Println("Node details - Succ", node)
 
 		} else if unMarshalledCommand.Do == "put" {
-			//	fmt.Println("inside PUT")
+				fmt.Println("*****************************************inside PUT")
 			workerServer.Send("PUT acknowledged", 0)
 			data_key := unMarshalledCommand.Data.Key
 			//data_val := unMarshalledCommand.Data.Value
@@ -279,6 +279,9 @@ func worker(node *Node) {
 			var current_node_key int
 			fmt.Println("Finger table of address:", my_add, finger_table, data_key)
 			var concerned_node_address string
+
+			contextForDataPut, _ := zmq.NewContext()
+			workerClientForDataPut, _ := contextForDataPut.NewSocket(zmq.REQ) // client
 			for {
 				current_node_key = finger_table[0]
 				if finger_table[0] >= data_key {
@@ -295,8 +298,8 @@ func worker(node *Node) {
 				//	fmt.Println("current key",current_node_key)
 				concerned_node_address = node_addresses[current_node_key]
 
-				contextForDataPut, _ := zmq.NewContext()
-				workerClientForDataPut, _ := contextForDataPut.NewSocket(zmq.REQ) // client
+				// contextForDataPut, _ := zmq.NewContext()
+				// workerClientForDataPut, _ := contextForDataPut.NewSocket(zmq.REQ) // client
 				workerClientForDataPut.Connect(concerned_node_address)
 
 				getFingerCmd := &Command{
@@ -320,26 +323,30 @@ func worker(node *Node) {
 				}
 			}
 			// workerServer.Send("PUT acknowledged", 0)
-
-			contextForAdddata, _ := zmq.NewContext()
-			workerClientAdddata, _ := contextForAdddata.NewSocket(zmq.REQ) // client
-			workerClientAdddata.Connect(concerned_node_address)
+			time.Sleep(time.Second)
+		//	contextForAdddata1, _ := zmq.NewContext()
+		//	workerClientAdddata1, _ := contextForAdddata1.NewSocket(zmq.REQ) // client
+			//time.Sleep(1*time.Second)
+			workerClientForDataPut.Connect(concerned_node_address)
+			
 			addData := &Command{
-				Do:      "update-bucket",
+				Do:     "update-bucket",
 				ReplyTo: my_add,
 				Data:    unMarshalledCommand.Data,
 			}
 			marshalled_addData, _ := json.Marshal(addData) //message packing into json
-			fmt.Println("send update bucket command at address:", concerned_node_address)
-			fmt.Println("Data being sent:", addData)
-			workerClientAdddata.SendBytes(marshalled_addData, 0)
-			workerClientAdddata.Recv(0) //get ack
-			// fmt.Println(recvAck)
+			fmt.Println("send update bucket command at address:", concerned_node_address,my_add)
+			fmt.Println("Data being sent:", addData.Data)
+			
+			workerClientForDataPut.SendBytes(marshalled_addData, 0)
+			recvAck,_ :=workerClientForDataPut.Recv(0) //get ack
+			fmt.Println(recvAck)
 			fmt.Println("PUT COMPELTE")
-		} else if unMarshalledCommand.Do == "update-bucket" {
-			fmt.Println("Updating bucket in ", my_add, unMarshalledCommand.Data)
+
+		} else if unMarshalledCommand.Do == "update-bucket"{
+			fmt.Println("***************************Updating bucket in ", my_add, unMarshalledCommand.Data)
 			node.Bucket[unMarshalledCommand.Data.Key] = unMarshalledCommand.Data.Value
-			workerServer.Send("data updated in bucket "+my_add, 0)
+			workerServer.Send("update acknowledged ", 0)
 		} else if unMarshalledCommand.Do == "get" {
 			data_key := unMarshalledCommand.Data.Key
 			//fmt.Println("inside get", node.Bucket[data_key])
@@ -397,7 +404,7 @@ func main() {
 		}
 		go worker(node)
 	}
-
+	//starting commands
 	//joining 8 command
 	join_8 := &Command{
 		Do:             "join-ring",
@@ -453,6 +460,12 @@ func main() {
 	}
 	executeCommand("tcp://127.0.0.1:5513", join13)
 
+
+	// upd_cmd := &Command{
+	// 	Do:      "update-bucket",
+	// 	ReplyTo: "tcp://127.0.0.1:5508",
+	// }
+	// executeCommand("tcp://127.0.0.1:5501", upd_cmd)
 	// Command to fix the finger tables
 	time.Sleep(1 * time.Second)
 	fix_finger_table_cmd := &Command{
@@ -463,13 +476,14 @@ func main() {
 		fmt.Println("update finger table of:", addr)
 		executeCommand(addr, fix_finger_table_cmd)
 	}
+	
 
 	// Put data commands
 	time.Sleep(1 * time.Second)
 	put_data_cmd := &Command{
 		Do: "put",
 		Data: &DataStruct{
-			Key:   10,
+			Key:   11,
 			Value: 100,
 		},
 		ReplyTo: "tcp://127.0.0.1:5501",
@@ -515,6 +529,8 @@ func main() {
 		ReplyTo: "tcp://127.0.0.1:5508",
 	}
 	executeCommand("tcp://127.0.0.1:5514", get_list_cmd)
+
+
 
 	fmt.Println("\n\t--------End of main() commands--------")
 
