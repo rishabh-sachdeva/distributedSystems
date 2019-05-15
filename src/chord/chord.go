@@ -51,6 +51,10 @@
 			type FingerTable struct{
 				FingerTable [num_nodes_order-1]int
 			}
+			type BucketStruct struct{
+				Bucket map[int]int
+			}
+
 
 			// type MessageAcrossWorkers struct{
 			// 	FingerTable [num_nodes_order - 1]int
@@ -157,8 +161,6 @@
 					fmt.Println("nodes in ring -", nodes_in_ring)
 					fmt.Println("Node details - ", node)
 						
-					} else if unMarshalledCommand.Do == "get-ring-fingers" {
-						//return finger table
 					} else if unMarshalledCommand.Do == "find-ring-successor" {
 						// workerServer.Send(strconv.Itoa(succ), 0)
 						workerServer.Send(strconv.Itoa(node.Succ), 0)
@@ -253,7 +255,7 @@
 							workerClientForDataPut.Connect(concerned_node_address)
 
 							getFingerCmd := &Command{
-								Do: "get-fingers",
+								Do: "get-ring-fingers",
 								ReplyTo: my_add,
 							}
 							marshal_get_finger, _ := json.Marshal(getFingerCmd)
@@ -290,11 +292,10 @@
 						fmt.Println("updating bucket in ",my_add, unMarshalledCommand.Data)
 						node.Bucket[unMarshalledCommand.Data.Key] = unMarshalledCommand.Data.Value
 						workerServer.Send("data updated in bucket "+my_add,0)
-					}else if unMarshalledCommand.Do == "get-fingers"{
+					}else if unMarshalledCommand.Do == "get-ring-fingers"{
 						fingerTableJson := &FingerTable{node.FingerTable}
 						marshalledJsonFingers,_ := json.Marshal(fingerTableJson)
 						workerServer.SendBytes(marshalledJsonFingers,0)
-						//workerServer.Send("fuke me",0)
 
 					}else if unMarshalledCommand.Do =="Get"{
 
@@ -303,6 +304,16 @@
 			//			finger_table := node.FingerTable
 						workerServer.Send(strconv.Itoa(node.Bucket[data_key]),0)
 
+					}else if unMarshalledCommand.Do =="init-ring-fingers"{
+
+						node.FingerTable = [num_nodes_order-1]int{}
+						workerServer.Send("init the fingers",0)
+
+					}else if unMarshalledCommand.Do =="list-items"{
+						bucketJson := BucketStruct{Bucket: node.Bucket}
+						marshalledBucketJson,_ := json.Marshal(bucketJson)
+						fmt.Println("Bucket:", node.Bucket)  
+						workerServer.Send(string(marshalledBucketJson),0)
 					}
 				}
 				
@@ -349,13 +360,7 @@
 					}
 					go worker(node)
 				}
-				//initiate a seperate coordinator thread
-				nodeCood := &Node{
-					Key:     0,
-					Address: "tcp://127.0.0.1:5500",
-
-				}
-				go coordinator(nodeCood)
+				
 				//joining 8 command
 				join_8 := &Command{
 					Do:             "join-ring",
@@ -437,6 +442,12 @@
 				}
 				executeCommand("tcp://127.0.0.1:5514", get_cmd)
 
+				get_list_cmd := &Command{
+					Do:     "list-items",
+					ReplyTo: "tcp://127.0.0.1:5508",
+				}
+				executeCommand("tcp://127.0.0.1:5514", get_list_cmd)
+
 
 				time.Sleep(1000 * time.Second)
 			}
@@ -454,9 +465,17 @@
 				fmt.Println(msg)
 				mu.Unlock()
 			}
-
-			func coordinator(node *Node){
+			func executeBucketCommand(address string, command *Command) {
+				var mu sync.Mutex
+				mu.Lock()
 				context, _ := zmq.NewContext()
-				coodServer, _ := context.NewSocket(zmq.REP)
-				coodServer.Bind(node.Address)
+				coordinatorClient, _ := context.NewSocket(zmq.REQ)
+				coordinatorClient.Connect(address)
+				// Command marshalled
+				marshalledJson, _ := json.Marshal(command)
+				// Instructing Node to perform Command
+				coordinatorClient.SendBytes(marshalledJson, 0)
+				msg,_:=coordinatorClient.RecvBytes(0) // get acknowledgement
+				fmt.Println(msg)
+				mu.Unlock()
 			}
