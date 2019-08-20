@@ -1,0 +1,17 @@
+
+Write a GoLang multithreaded application to compute the average of N real numbers using gossip. 
+Your program will take two command-line input parameters: a filename for the topology of the network, and a filename for the data (numbers) that nodes will be given.
+The topology of the network is assumed to be an undirected simple graph. The topology file is an ASCII/text file formatted as follows: two integers in the 1st line indicating the number of nodes and number of edges of the graph respectively, followed by pairs of positive integers (one per line) indicating each undirected edge of the graph. Assume nodes are identified by the positive integers 1, 2, 3, ...
+The data file is an ASCII/text file formatted as follows: one positive integer and one real number per line (indicating node identifier and the value assigned to that node).
+A small sample topology file and data file is provided for convenience.
+The main() of your program reads the topology and data files, and creates zeroMQ socket addresses (one per worker) to facilitate their communication.
+The main() of your program simply spawns worker threads (one worker for each node), a monitor thread, and then waits to receive the CTRL-C signal from the user, at which time it exits. The main() passes to each worker: its assigned value, socket address, as well as the socket addresses of its neighbor workers.
+Workers communicate with each other in order to find the average of their assigned values via a gossip protocol.
+Each worker creates a zeroMQ socket with the address provided by main() for communicating with its neighbor workers via JSON messages.
+Each worker maintains some state information (about itself, its neighbors, and the gossip computation).
+Each worker goes to "sleep" for 100 msecs before sending a message.
+The monitor thread periodically (once per sec) examines the state of every worker and prints each worker's estimate of the (global) average, as well as the MSE (mean-squared-error) of these estimates from the true average.
+
+Your implementation should be correct and efficient.
+Each JSON message exchanged as well the state of each worker should have size bounded by a constant (independent of the size of the network).
+Analyze the performance of your implementation on two topologies of your choice, one with average node degree Theta(1) and and one with Theta(logN), having N=64, 256, 1024, 4096, and 8192 nodes.
